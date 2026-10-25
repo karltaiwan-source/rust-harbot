@@ -184,7 +184,7 @@ h1 em{font-style:normal;color:var(--signal)}
       </div>
       <div>
         <div class="lbl">遊戲模式</div>
-        <div class="diff modes" id="modeSel"><button data-m="solo">單人</button><button data-m="duel">連線對戰 1v1</button><button data-m="coop">連線合作</button></div>
+        <div class="diff modes" id="modeSel"><button data-m="solo">單人</button><button data-m="duel">連線對戰</button><button data-m="coop">連線合作</button></div>
       </div>
       <p class="lede" id="lede"></p>
       <div class="netp" id="netPanel" hidden>
@@ -213,7 +213,7 @@ h1 em{font-style:normal;color:var(--signal)}
         </div>
         <div id="assistBox">
           <div class="lbl">射擊輔助</div>
-          <div class="gyrorow"><button class="tog" id="aaBtn" aria-pressed="false">輔助瞄準</button><button class="tog" id="afBtn" aria-pressed="false">自動開火</button></div>
+          <div class="gyrorow"><button class="tog" id="aaBtn" aria-pressed="false">輔助瞄準</button></div>
         </div>
         <div id="gyroBox" hidden>
           <div class="lbl">陀螺儀瞄準</div>
@@ -435,7 +435,7 @@ const sun=new THREE.DirectionalLight(0xffdcae,.75);sun.position.set(-500,900,-30
 function canvasTex(w,h,draw){const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.anisotropy=4;return t}
 // ---------- map loading ----------
 let MAP=null,STATIC_WALLS=[],ZONES=[],BOT_SPAWNS=[],mapGroup=null,mapId='harbor';
-const PICKUPS=[0,1,2,3].map(()=>({x:0,y:0,t:0}));const HEAL_AMT=50,HEAL_RESPAWN=20;
+const PICKUPS=[0,1,2,3].map(()=>({x:0,y:0,t:0}));const HEAL_AMT=50,HEAL_RESPAWN=30;
 const crateTex=canvasTex(128,128,(g)=>{g.fillStyle='#8a6a44';g.fillRect(0,0,128,128);g.strokeStyle='#5b4329';g.lineWidth=10;g.strokeRect(5,5,118,118);g.beginPath();g.moveTo(10,10);g.lineTo(118,118);g.moveTo(118,10);g.lineTo(10,118);g.stroke();g.fillStyle='rgba(0,0,0,.12)';for(let y=0;y<128;y+=16)g.fillRect(0,y,128,2)});
 function contTex(col){return canvasTex(256,128,(g)=>{g.fillStyle=col;g.fillRect(0,0,256,128);for(let x=0;x<256;x+=16){g.fillStyle='rgba(0,0,0,.22)';g.fillRect(x,0,5,128);g.fillStyle='rgba(255,255,255,.07)';g.fillRect(x+6,0,3,128)}g.fillStyle='rgba(0,0,0,.3)';g.fillRect(0,0,256,6);g.fillRect(0,122,256,6)})}
 const contMats=['#7a3b2e','#2f5d62','#8b6f3a','#4b5a3a'].map(c=>{const t=contTex(c);t.wrapS=THREE.RepeatWrapping;return t});
@@ -657,10 +657,10 @@ async function tryLandscape(){if(!coarse)return;if(GYRO_FEATURE&&gyroOn&&typeof 
 const GYRO_FEATURE=true;
 let gyroOn=false,gyroSens=1,gyroSeen=false,gyroLastT=0,gyroMsg='',gyroInvX=false,gyroInvY=false,gyroSwap=false;
 // axis calibration: candidate maps from rotationRate fields to device-frame angular velocity (x,y,z)
-const GCAND=[r=>[r.beta,r.gamma,r.alpha],r=>[r.alpha,r.beta,r.gamma],r=>[-r.beta,-r.gamma,-r.alpha],r=>[-r.alpha,-r.beta,-r.gamma]];
-let gyroMap=-1,gScore=[0,0,0,0],gN=0,gPrev=null,gSm=null,gUnit=1,gMag=[0,0];
-try{const g=JSON.parse(localStorage.getItem('rh-gyro2')||'{}');gyroOn=!!g.on;if(g.s>=.3&&g.s<=3)gyroSens=g.s;gyroInvX=!!g.ix;gyroInvY=!!g.iy;gyroSwap=!!g.sw;if(g.map>=0&&g.map<4){gyroMap=g.map;gUnit=g.u||1}}catch(e){}
-function saveGyro(){try{localStorage.setItem('rh-gyro2',JSON.stringify({on:gyroOn,s:gyroSens,ix:gyroInvX,iy:gyroInvY,sw:gyroSwap,map:gyroMap,u:gUnit}))}catch(e){}}
+const GCAND=[r=>[r.beta,r.gamma,r.alpha],r=>[r.alpha,r.beta,r.gamma]];
+let gyroMap=-1,gScore=[0,0],gN=0,gPrev=null,gSm=null,gUnit=1,gMag=[0,0];
+try{const g=JSON.parse(localStorage.getItem('rh-gyro3')||'{}');gyroOn=!!g.on;if(g.s>=.3&&g.s<=3)gyroSens=g.s;gyroInvX=!!g.ix;gyroInvY=!!g.iy;gyroSwap=!!g.sw;if(g.map>=0&&g.map<2){gyroMap=g.map;gUnit=g.u||1}}catch(e){}
+function saveGyro(){try{localStorage.setItem('rh-gyro3',JSON.stringify({on:gyroOn,s:gyroSens,ix:gyroInvX,iy:gyroInvY,sw:gyroSwap,map:gyroMap,u:gUnit}))}catch(e){}}
 function screenAngle(){if(rot)return 90;let a=(screen.orientation&&typeof screen.orientation.angle==='number')?screen.orientation.angle:(typeof window.orientation==='number'?window.orientation:0);a=((a%360)+360)%360;
  // some browsers report portrait while the window is clearly landscape: fall back to 90
  if((a===0||a===180)&&innerWidth>innerHeight*1.15)a=90;return a}
@@ -678,11 +678,11 @@ function calibrate(rr,g,dt){ // dg/dt = -w x g (device frame); independent of gr
   const p=[-(w[1]*gSm[2]-w[2]*gSm[1])*dt,-(w[2]*gSm[0]-w[0]*gSm[2])*dt,-(w[0]*gSm[1]-w[1]*gSm[0])*dt];const np=Math.hypot(...p);if(np<1e-6)return;
   gScore[k]+=(p[0]*dg[0]+p[1]*dg[1]+p[2]*dg[2])/(np*ndg);if(k===0){gMag[0]+=ndg;gMag[1]+=np}});
  if(!any)return;gN++;
- if(gN>=45){const order=[0,1,2,3].sort((a,b)=>gScore[b]-gScore[a]);const best=order[0];
-  if(gScore[best]>gN*.45&&gScore[best]-gScore[order[1]]>gN*.3){const mapChanged=best!==gyroMap;gyroMap=best;
+ if(gN>=45){const order=[0,1].sort((a,b)=>Math.abs(gScore[b])-Math.abs(gScore[a]));const best=order[0];
+  if(gyroMap<0&&Math.abs(gScore[best])>gN*.45&&Math.abs(gScore[best])-Math.abs(gScore[order[1]])>gN*.3){const mapChanged=best!==gyroMap;gyroMap=best;
    const ratio=gMag[1]>0?gMag[0]/gMag[1]:1;gUnit=ratio>15?57.2958:1; // browser reported rad/s
    if(mapChanged){saveGyro();renderGyro()}}
-  gN=0;gScore=[0,0,0,0];gMag=[0,0]}}
+  gN=0;gScore=[0,0];gMag=[0,0]}}
 addEventListener('devicemotion',e=>{if(!GYRO_FEATURE||!gyroOn)return;const rr=e.rotationRate;if(!rr||(rr.beta==null&&rr.alpha==null))return;
  if(!gyroSeen){gyroSeen=true;if(gyroMsg.startsWith('沒有'))gyroMsg='';renderGyro()}
  const now=performance.now(),dt=gyroLastT?Math.min(.05,(now-gyroLastT)/1000):0;gyroLastT=now;if(!dt)return;
@@ -694,7 +694,7 @@ addEventListener('devicemotion',e=>{if(!GYRO_FEATURE||!gyroOn)return;const rr=e.
  if(gyroSwap){const t=yaw;yaw=pitch;pitch=t}
  if(gyroInvX)yaw=-yaw;if(gyroInvY)pitch=-pitch;
  const dz=.4;yaw=Math.abs(yaw)<dz?0:yaw;pitch=Math.abs(pitch)<dz?0:pitch;
- const k=Math.PI/180*dt*gyroSens*aim.mul;if(yaw||pitch)aim.lookT=now;player.angle+=yaw*k;player.pitch=clamp(player.pitch-pitch*k,-1,1)});
+ const k=Math.PI/180*dt*gyroSens*aim.mul;if(yaw||pitch)aim.lookT=now;player.angle-=yaw*k;player.pitch=clamp(player.pitch+pitch*k,-1,1)});
 function renderGyro(){const box=$('gyroBox');if(!box)return;box.hidden=!(GYRO_FEATURE&&coarse);
  const b=$('gyroBtn');b.setAttribute('aria-pressed',String(gyroOn));b.textContent=gyroOn?'開啟':'關閉';
  $('gyroSens').value=gyroSens;$('gyroVal').textContent=gyroSens.toFixed(1);$('gyroSensWrap').hidden=!gyroOn;$('gyroAdv').hidden=!gyroOn;
@@ -705,7 +705,7 @@ function initGyroUI(){if(!$('gyroBox'))return;
  $('gyroBtn').onclick=async()=>{if(!gyroOn){const ok=await askGyro();gyroOn=ok}else{gyroOn=false;gyroMsg=''}saveGyro();renderGyro()};
  $('gyroSens').oninput=e=>{gyroSens=+e.target.value;saveGyro();renderGyro()};
  $('gyroIX').onclick=()=>{gyroInvX=!gyroInvX;saveGyro();renderGyro()};$('gyroIY').onclick=()=>{gyroInvY=!gyroInvY;saveGyro();renderGyro()};$('gyroSW').onclick=()=>{gyroSwap=!gyroSwap;saveGyro();renderGyro()};
- $('gyroReset').onclick=()=>{gyroMap=-1;gUnit=1;gyroInvX=gyroInvY=gyroSwap=false;gN=0;gScore=[0,0,0,0];saveGyro();renderGyro()};
+ $('gyroReset').onclick=()=>{gyroMap=-1;gUnit=1;gyroInvX=gyroInvY=gyroSwap=false;gN=0;gScore=[0,0];saveGyro();renderGyro()};
  renderGyro()}
 
 // ---------- players & bots ----------
@@ -905,9 +905,9 @@ function netTick(dt){
   if(net.seenPh==='over'){net.endT-=dt;if(net.endT<=0){net.seenPh='done';endMatch()}}}}
 
 // ---------- aim assist & auto-fire ----------
-let assistOn=coarse,autoFire=false;
-try{const a=JSON.parse(localStorage.getItem('rh-assist')||'{}');if(typeof a.aa==='boolean')assistOn=a.aa;if(typeof a.af==='boolean')autoFire=a.af}catch(e){}
-function saveAssist(){try{localStorage.setItem('rh-assist',JSON.stringify({aa:assistOn,af:autoFire}))}catch(e){}}
+let assistOn=coarse;
+try{const a=JSON.parse(localStorage.getItem('rh-assist')||'{}');if(typeof a.aa==='boolean')assistOn=a.aa}catch(e){}
+function saveAssist(){try{localStorage.setItem('rh-assist',JSON.stringify({aa:assistOn}))}catch(e){}}
 const aim={on:false,mul:1,lookT:0,tgt:null};
 function aimTargets(){return online&&mode==='duel'?[...others.values()].filter(o=>o.alive&&!o.gone):bots.filter(b=>b.alive)}
 function updateAim(dt,firing){const p=player;aim.on=false;aim.mul=1;aim.tgt=null;if(!p||!p.alive||state!=='playing')return;
@@ -921,12 +921,11 @@ function updateAim(dt,firing){const p=player;aim.on=false;aim.mul=1;aim.tgt=null
   const dist=Math.hypot(yawD,pitD*0.8)/Math.max(ar,.012);if(dist<bestD){bestD=dist;best={e,yawD,pitD,ar}}}
  if(!best||bestD>4)return;aim.tgt=best.e;
  aim.mul=bestD<2.2?.5:.75; // slow the view down near a target
- const active=firing||autoFire||p.moving||performance.now()-aim.lookT<250;
+ const active=firing||p.moving||performance.now()-aim.lookT<250;
  if(active&&bestD>.35){const str=(online&&mode==='duel'?.55:1)*Math.max(0,1-bestD/4),rate=2.4*str*dt;
   p.angle+=clamp(best.yawD,-rate,rate);p.pitch=clamp(p.pitch+clamp(best.pitD,-rate*.7,rate*.7),-1,1)}}
-function renderAssist(){const a=$('aaBtn'),f=$('afBtn');if(!a)return;a.setAttribute('aria-pressed',String(assistOn));a.textContent=assistOn?'輔助瞄準：開':'輔助瞄準：關';
- f.setAttribute('aria-pressed',String(autoFire));f.textContent=autoFire?'自動開火：開':'自動開火：關';const tf=$('tF');if(tf)tf.textContent=autoFire?'自動':'開火'}
-function initAssistUI(){if(!$('aaBtn'))return;$('aaBtn').onclick=()=>{assistOn=!assistOn;saveAssist();renderAssist()};$('afBtn').onclick=()=>{autoFire=!autoFire;saveAssist();renderAssist()};renderAssist()}
+function renderAssist(){const a=$('aaBtn');if(!a)return;a.setAttribute('aria-pressed',String(assistOn));a.textContent=assistOn?'輔助瞄準：開':'輔助瞄準：關';}
+function initAssistUI(){if(!$('aaBtn'))return;$('aaBtn').onclick=()=>{assistOn=!assistOn;saveAssist();renderAssist()};renderAssist()}
 
 // ---------- update ----------
 function smooth(e,dt){const k=Math.min(1,dt*14);if(Math.hypot(e.tx-e.x,e.ty-e.y)>260){e.x=e.tx;e.y=e.ty}else{e.x+=(e.tx-e.x)*k;e.y+=(e.ty-e.y)*k}
@@ -959,7 +958,7 @@ function update(dt){
   p.cd-=dt;p.abCd=Math.max(0,p.abCd-dt);
   if(p.reloadT>0){p.reloadT-=dt;if(p.reloadT<=0){p.reloadT=0;p.ammo=p.w.mag}}
   const manual=((mouse.down&&(locked||lockFailed))||touch.fire)&&!paused;updateAim(dt,manual);
-  const wantFire=manual||(autoFire&&aim.on&&!paused);
+  const wantFire=manual;
   if(wantFire&&p.cd<=0&&p.reloadT<=0){if(p.ammo>0){p.ammo--;p.cd=p.w.rate;playerFire()}else reload(p,p.w)}
   if(p.ammo===0&&p.reloadT<=0)reload(p,p.w);
   if(p.moving&&Math.random()<dt*2)noise(p.x,p.y,360);
@@ -1092,7 +1091,7 @@ function glyph(a){const c=a.color;const s={kite:`<path d="M19 4 L34 19 L19 34 L2
  lumen:`<circle cx="19" cy="19" r="15" fill="none" stroke="${c}" stroke-width="2" opacity=".5"/><circle cx="19" cy="19" r="9" fill="none" stroke="${c}" stroke-width="2"/><circle cx="19" cy="19" r="3.5" fill="${c}"/>`};
  return `<svg class="glyph" viewBox="0 0 38 38" aria-hidden="true">${s[a.id]}</svg>`}
 const LEDE={solo:'挑選一名特務，獨自潛入戰場，清除五名敵方特務即贏下一回合，先拿下 3 回合獲勝。爆頭傷害加倍；被擊中時畫面邊緣的紅色弧線會指向開槍的敵人。',
- duel:'2 到 4 人的個人混戰：每人從地圖不同角落出發，活到最後的人拿下回合，最先拿到 3 回合的人獲勝。補血站大家共用，被吃掉就要等 20 秒。',
+ duel:'2 到 4 人的個人混戰：每人從地圖不同角落出發，活到最後的人拿下回合，最先拿到 3 回合的人獲勝。補血站大家共用，被吃掉就要等 30 秒。',
  coop:'2 到 4 人同一隊，一起對抗 AI 敵方特務，人數越多敵人越多（最多 8 名）。清光敵人贏下回合；全隊陣亡就輸掉回合。先拿 3 回合獲勝。'};
 function renderLobby(){
  const lockMode=!!(net.rm&&net.players.length>1&&!isHost);
