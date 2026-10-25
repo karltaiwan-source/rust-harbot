@@ -119,6 +119,7 @@ h1 em{font-style:normal;color:var(--signal)}
 .rk{display:grid;grid-template-columns:2em 1fr auto;align-items:center;gap:10px;border:1px solid var(--line);padding:8px 12px;text-align:left;font-size:15px}
 .rk b{font-family:var(--f-display);font-size:24px;color:var(--muted)}.rk em{font-style:normal;font-family:var(--f-mono);color:var(--paper)}
 .rk.me{border-color:var(--signal)}.rk.me b{color:var(--signal)}
+.atune{font-size:11px;line-height:1.5;color:var(--c);opacity:.9}
 .go:disabled{opacity:.45;cursor:not-allowed;filter:none}
 .go{all:unset;cursor:pointer;background:var(--signal);color:var(--ink);font-family:var(--f-display);font-weight:800;font-size:26px;letter-spacing:.06em;padding:10px 34px;clip-path:polygon(10px 0,100% 0,calc(100% - 10px) 100%,0 100%)}
 .go:hover{filter:brightness(1.08)} .go:focus-visible{outline:2px solid var(--paper);outline-offset:3px}
@@ -179,7 +180,7 @@ h1 em{font-style:normal;color:var(--signal)}
   <section class="sheet" id="menu">
     <div class="wrap">
       <div>
-        <div class="eyebrow">第一人稱戰術射擊 · 單人或兩人連線</div>
+        <div class="eyebrow">第一人稱戰術射擊 · 單人或 2–4 人連線 · <span id="ver">版本 v14 · 10/25</span></div>
         <h1>街頭<em>英豪</em></h1>
       </div>
       <div>
@@ -753,7 +754,7 @@ function pushFeed(t,bad,head){feed.unshift({t,bad,head,life:4});feed=feed.slice(
 function noise(x,y,rad){for(const b of bots)if(b.alive&&!b.sees&&Math.hypot(b.x-x,b.y-y)<rad)b.lastSeen={x,y}}
 const _v=new THREE.Vector3();
 function playerFire(){const p=player,w=p.w;stats.shots++;let anyHit=false;if(online)net.fs++;
- const spread=w.spread+(p.moving?w.move:0)+(p.dashT>0?.12:0)+recoil*.004;
+ const tu=tune(p),spread=(w.spread+(p.moving?w.move:0)+(p.dashT>0?.12:0)+recoil*.004)*(tu?tu.spread:1);
  muzzle.getWorldPosition(_v);camera.updateMatrixWorld();const from=camera.localToWorld(_v.clone());
  const targets=online&&mode==='duel'?[...others.values()].filter(o=>o.alive&&!o.gone):bots;const remoteDmg=new Map();
  for(let k=0;k<w.pellets;k++){
@@ -764,7 +765,7 @@ function playerFire(){const p=player,w=p.w;stats.shots++;let anyHit=false;if(onl
   for(const e of targets){if(!e.alive)continue;const t=rayCircle(p.x,p.y,dx,dy,e.x,e.y,e.r);if(t<tEnd){const h=EYE+tp*t;if(h>=0&&h<=84){tEnd=t;hit=e;head=h>=59}}}
   const end={x:p.x+dx*tEnd,y:EYE+tp*tEnd,z:p.y+dy*tEnd};
   if(k<3)addTracer(from,end,'#fff1c8');
-  if(hit){anyHit=true;const dmg=w.dmg*(head?(w.head||2):1);if(head)headMark=true;burst(end.x,end.y,end.z,5,'#ff6b57',90);
+  if(hit){anyHit=true;const dmg=w.dmg*(tu?tu.dmg:1)*(head?(w.head||2):1);if(head)headMark=true;burst(end.x,end.y,end.z,5,'#ff6b57',90);
    if(hit.peer||(online&&!isHost)){const key=hit.peer||('b'+hit.id),cur=remoteDmg.get(key)||{d:0,h:false};cur.d+=dmg;cur.h=cur.h||head;remoteDmg.set(key,cur);hit.hitT=.12;hit.lastMyHit=performance.now();hit.lastMyHead=head}
    else damage(hit,dmg,p,head)}
   else if(tEnd<w.range-1)burst(end.x,end.y,end.z,4,'#ffe2a0',120)}
@@ -909,6 +910,13 @@ let assistOn=coarse;
 try{const a=JSON.parse(localStorage.getItem('rh-assist')||'{}');if(typeof a.aa==='boolean')assistOn=a.aa}catch(e){}
 function saveAssist(){try{localStorage.setItem('rh-assist',JSON.stringify({aa:assistOn}))}catch(e){}}
 const aim={on:false,mul:1,lookT:0,tgt:null};
+// per-weapon balance used only while aim assist is on (sustained-fire guns gain the most from assist)
+const TUNE={heavy:{dmg:31/39,spread:1,pull:.7,slow:.8,reach:1600,txt:'每發 31（爆頭仍一槍倒地），吸附較弱'},
+ rifle:{dmg:1,spread:1,pull:1,slow:1,reach:1800,txt:'標準吸附，中遠距離最穩定'},
+ shotgun:{dmg:17/15,spread:.75,pull:1.4,slow:1,reach:650,txt:'吸附加強、散布縮小，每顆彈丸 17'},
+ marksman:{dmg:75/80,spread:1,pull:.4,slow:.6,reach:1400,txt:'吸附較弱且只在近中距離，每發 75'},
+ smg:{dmg:1,spread:1,pull:1,slow:1,reach:1200,txt:''}};
+function tune(p){return assistOn?(TUNE[p.agent.weapon]||TUNE.rifle):null}
 function aimTargets(){return online&&mode==='duel'?[...others.values()].filter(o=>o.alive&&!o.gone):bots.filter(b=>b.alive)}
 function updateAim(dt,firing){const p=player;aim.on=false;aim.mul=1;aim.tgt=null;if(!p||!p.alive||state!=='playing')return;
  const dx=Math.cos(p.angle),dy=Math.sin(p.angle),tp=Math.tan(p.pitch),range=p.w.range;
@@ -918,13 +926,14 @@ function updateAim(dt,firing){const p=player;aim.on=false;aim.mul=1;aim.tgt=null
   const t=rayCircle(p.x,p.y,dx,dy,e.x,e.y,e.r);if(t<wall){const h=EYE+tp*t;if(h>=0&&h<=84)aim.on=true}
   if(!assistOn||!los(p,e))continue;
   const yawD=angDiff(Math.atan2(ey,ex),p.angle),pitD=Math.atan2(46-EYE,d)-p.pitch,ar=Math.atan(e.r/d);
-  const dist=Math.hypot(yawD,pitD*0.8)/Math.max(ar,.012);if(dist<bestD){bestD=dist;best={e,yawD,pitD,ar}}}
+  if(d>tune(p).reach)continue;const dist=Math.hypot(yawD,pitD*0.8)/Math.max(ar,.012);if(dist<bestD){bestD=dist;best={e,yawD,pitD,ar}}}
  if(!best||bestD>4)return;aim.tgt=best.e;
- aim.mul=bestD<2.2?.5:.75; // slow the view down near a target
+ const tu=tune(p);aim.mul=1-(bestD<2.2?.5:.25)*tu.slow; // slow the view down near a target
  const active=firing||p.moving||performance.now()-aim.lookT<250;
- if(active&&bestD>.35){const str=(online&&mode==='duel'?.55:1)*Math.max(0,1-bestD/4),rate=2.4*str*dt;
+ if(active&&bestD>.35){const str=tu.pull*(online&&mode==='duel'?.55:1)*Math.max(0,1-bestD/4),rate=2.4*str*dt;
   p.angle+=clamp(best.yawD,-rate,rate);p.pitch=clamp(p.pitch+clamp(best.pitD,-rate*.7,rate*.7),-1,1)}}
-function renderAssist(){const a=$('aaBtn');if(!a)return;a.setAttribute('aria-pressed',String(assistOn));a.textContent=assistOn?'輔助瞄準：開':'輔助瞄準：關';}
+function renderAssist(){const a=$('aaBtn');if(!a)return;a.setAttribute('aria-pressed',String(assistOn));a.textContent=assistOn?'輔助瞄準：開':'輔助瞄準：關';
+ document.querySelectorAll('.atune').forEach(el=>{const t=TUNE[el.dataset.w];el.hidden=!assistOn||!t||!t.txt;el.textContent=t?'輔助瞄準時：'+t.txt:''})}
 function initAssistUI(){if(!$('aaBtn'))return;$('aaBtn').onclick=()=>{assistOn=!assistOn;saveAssist();renderAssist()};renderAssist()}
 
 // ---------- update ----------
@@ -1140,6 +1149,7 @@ function buildMenu(){
    <div class="top">${glyph(a)}<div><div class="nm">${a.name}</div><div class="en">${a.en}</div></div></div>
    <div class="stats">${bars.map(([k,v])=>`<span>${k}</span><span class="bar"><i style="width:${Math.round(v*100)}%"></i></span>`).join('')}</div>
    <div class="wp">${w.name} · ${w.mag} 發</div>
+   <div class="atune" data-w="${a.weapon}" hidden></div>
    <div class="ab"><b>Q ${a.ab.name}</b>　${a.ab.desc}<br><span style="color:var(--muted);font-size:11px">冷卻 ${a.ab.cd} 秒</span></div></button>`}).join('');
  $('agents').onclick=e=>{const b=e.target.closest('.agent');if(!b)return;pick=b.dataset.id;saveSettings();document.querySelectorAll('.agent').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.id===pick)));sendPresence();renderLobby()};
  document.querySelectorAll('#diff button').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.d===diff));b.onclick=()=>{diff=b.dataset.d;saveSettings();document.querySelectorAll('#diff button').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.d===diff)))}});
